@@ -22,5 +22,38 @@ router.get("/today", async (req, res) => {
     res.status(500).json({ error: "Failed to get today status" });
   }
 });
+router.get("/streak/:user", async (req, res) => {
+  const { user } = req.params;
 
+  const entries = await DailyEntry
+    .find({ user })
+    .sort({ date: -1 })
+    .select("date");
+
+  if (!entries.length) {
+    return res.json({ streak: 0 });
+  }
+
+  let streak = 0;
+  let currentDate = getTodayColombia();
+
+  for (const entry of entries) {
+    if (entry.date === currentDate) {
+      streak++;
+    } else {
+      const prev = new Date(currentDate);
+      prev.setDate(prev.getDate() - 1);
+      const prevStr = prev.toISOString().slice(0, 10);
+
+      if (entry.date === prevStr) {
+        streak++;
+        currentDate = prevStr;
+      } else {
+        break;
+      }
+    }
+  }
+
+  res.json({ streak });
+});
 module.exports = router;
