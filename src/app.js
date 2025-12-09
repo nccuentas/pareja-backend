@@ -15,5 +15,6 @@ app.get("/health", (req, res) => {
 
 app.use("/api/daily", require("./routes/daily.routes"));
 app.use("/api/weekly", require("./routes/weekly.routes"));
+app.use("/api/status", require("./routes/status.routes"));
 
 module.exports = app;
