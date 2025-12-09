@@ -8,13 +8,15 @@ function average(arr, key) {
 }
 
 function toPercent(val) {
+  if (val === null) return null;
   return Math.round((val / 5) * 100);
 }
 
-function buildPersonalReview(user, entries) {
+function buildPersonalReview(entries) {
   if (!entries.length) {
     return {
-      summary: "No hay suficientes datos esta semana.",
+      percentages: null,
+      text: [],
     };
   }
 
@@ -54,13 +56,9 @@ function buildPersonalReview(user, entries) {
 
   // Incomodidades
   if (discomfortCount >= 3) {
-    lines.push(
-      "Se presentaron varias incomodidades a lo largo de la semana."
-    );
+    lines.push("Se presentaron varias incomodidades a lo largo de la semana.");
   } else if (discomfortCount > 0) {
-    lines.push(
-      "Hubo momentos puntuales de incomodidad."
-    );
+    lines.push("Hubo momentos puntuales de incomodidad.");
   }
 
   return {
@@ -74,29 +72,55 @@ function buildPersonalReview(user, entries) {
 }
 
 router.get("/", async (req, res) => {
-  const since = new Date();
-  since.setDate(since.getDate() - 7);
+  try {
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
 
-  const entries = await DailyEntry.find({
-    createdAt: { $gte: since },
-  });
+    const entries = await DailyEntry.find({
+      createdAt: { $gte: since },
+    }).sort({ createdAt: 1 });
 
-  if (!entries.length) {
-    return res.json({ message: "Aún no hay datos suficientes esta semana." });
+    if (!entries.length) {
+      return res.json({ message: "Aún no hay datos suficientes esta semana." });
+    }
+
+    const nicolasEntries = entries.filter(e => e.user === "nicolas");
+    const kelyEntries = entries.filter(e => e.user === "kely");
+
+    const nReview = buildPersonalReview(nicolasEntries);
+    const kReview = buildPersonalReview(kelyEntries);
+
+    // ✅ RECOLECTAR NOTAS LITERALES
+    const literalNotes = {
+      nicolas: [],
+      kely: [],
+    };
+
+    entries.forEach(e => {
+      if (e.notes && e.notes.trim() !== "") {
+        literalNotes[e.user].push({
+          date: e.createdAt.toISOString().split("T")[0],
+          note: e.notes,
+        });
+      }
+    });
+
+    res.json({
+      nicolas: {
+        ...nReview,
+        notes: literalNotes.nicolas,
+      },
+      kely: {
+        ...kReview,
+        notes: literalNotes.kely,
+      },
+      suggestion:
+        "Usen este resumen como punto de partida para conversar con calma y respeto.",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error generando resumen semanal" });
   }
-
-  const nicolas = entries.filter(e => e.user === "nicolas");
-  const kely = entries.filter(e => e.user === "kely");
-
-  const nReview = buildPersonalReview("nicolas", nicolas);
-  const kReview = buildPersonalReview("kely", kely);
-
-  res.json({
-    nicolas: nReview,
-    kely: kReview,
-    suggestion:
-      "Usen este resumen como punto de partida para conversar con calma y respeto.",
-  });
 });
 
 module.exports = router;
