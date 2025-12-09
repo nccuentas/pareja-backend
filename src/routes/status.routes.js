@@ -1,29 +1,26 @@
 const express = require("express");
 const router = express.Router();
+
 const DailyEntry = require("../models/DailyEntry");
+const { getTodayColombia } = require("../utils/dates");
 
 router.get("/today", async (req, res) => {
-  // Fecha de hoy (sin hora)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  try {
+    // ✅ HOY real en Colombia (YYYY-MM-DD)
+    const today = getTodayColombia();
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
+    // ✅ Buscamos por la fecha lógica, NO createdAt
+    const entries = await DailyEntry.find({ date: today });
 
-  const entries = await DailyEntry.find({
-    createdAt: {
-      $gte: today,
-      $lt: tomorrow,
-    },
-  });
-
-  const usersCheckedIn = new Set(entries.map(e => e.user));
-
-  res.json({
-    today: today.toISOString().slice(0, 10),
-    nicolas: usersCheckedIn.has("nicolas"),
-    kely: usersCheckedIn.has("kely"),
-  });
+    res.json({
+      today,
+      nicolas: entries.some(e => e.user === "nicolas"),
+      kely: entries.some(e => e.user === "kely"),
+    });
+  } catch (err) {
+    console.error("Error in /status/today:", err);
+    res.status(500).json({ error: "Failed to get today status" });
+  }
 });
 
 module.exports = router;
